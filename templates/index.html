@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Similarity Test</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Face Similarity Test</h1>
+        <p>Upload two images and select a model and metric to check if they are of the same person.</p>
+
+        <form id="similarityForm" enctype="multipart/form-data">
+            <div class="upload-section">
+                <div class="image-upload-container">
+                    <label for="image1">Load Image 1:</label>
+                    <input type="file" id="image1" name="image1" accept="image/png, image/jpeg" required>
+                    <img id="preview1" src="#" alt="Preview Image 1" style="display:none;">
+                </div>
+                <div class="image-upload-container">
+                    <label for="image2">Load Image 2:</label>
+                    <input type="file" id="image2" name="image2" accept="image/png, image/jpeg" required>
+                    <img id="preview2" src="#" alt="Preview Image 2" style="display:none;">
+                </div>
+            </div>
+
+            <div class="options-section">
+                <div class="option-group">
+                    <label for="model_name">Choose Model:</label>
+                    <select id="model_name" name="model_name">
+                        <option value="VGG-Face" selected>VGG-Face</option>
+                        <option value="Facenet">Facenet</option>
+                        <option value="Facenet512">Facenet512</option>
+                        <option value="OpenFace">OpenFace</option>
+                        <option value="DeepFace">DeepFace</option>
+                        <option value="DeepID">DeepID</option>
+                        <option value="ArcFace">ArcFace</option>
+                        <option value="Dlib">Dlib</option>
+                        <option value="SFace">SFace</option>
+                        <option value="GhostFaceNet">GhostFaceNet</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="distance_metric">Choose Distance Metric:</label>
+                    <select id="distance_metric" name="distance_metric">
+                        <option value="cosine" selected>Cosine</option>
+                        <option value="euclidean">Euclidean</option>
+                        <option value="euclidean_l2">Euclidean L2</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" id="predictBtn">Predict Similarity</button>
+        </form>
+
+        <div id="loading" style="display:none;">
+            <p>Processing... Please wait.</p>
+            <div class="loader"></div>
+        </div>
+
+        <div id="result" style="display:none;">
+            <h2>Result:</h2>
+            <p id="predictionText"></p>
+            <p id="distanceText"></p>
+            <p id="thresholdText"></p>
+            <p id="modelText"></p>
+            <p id="metricText"></p> <!-- Added for displaying metric -->
+        </div>
+        <div id="error" style="display:none; color:red;">
+            <h2>Error:</h2>
+            <p id="errorText"></p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
