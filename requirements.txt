@@ -2,3 +2,8 @@ flask
 deepface
 tf_keras
 opencv-python
+dlib
+facenet-pytorch
+mediapipe
+ultralytics
+torch
