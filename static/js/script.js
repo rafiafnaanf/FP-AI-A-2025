@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const distanceText = document.getElementById('distanceText');
     const thresholdText = document.getElementById('thresholdText');
     const modelText = document.getElementById('modelText');
-    const metricText = document.getElementById('metricText'); // Get the new element
+    const metricText = document.getElementById('metricText');
     const errorText = document.getElementById('errorText');
 
     const image1Input = document.getElementById('image1');
@@ -17,9 +17,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const preview1 = document.getElementById('preview1');
     const preview2 = document.getElementById('preview2');
 
-    // Model and Metric selectors
     const modelNameSelect = document.getElementById('model_name');
     const distanceMetricSelect = document.getElementById('distance_metric');
+    const detectorBackendSelect = document.getElementById('detector_backend');
+    const antiSpoofingCheckbox = document.getElementById('anti_spoofing');
 
     function displayPreview(input, previewElement) {
         input.addEventListener('change', function(event) {
@@ -52,11 +53,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const formData = new FormData(form);
         formData.append('model_name', modelNameSelect.value);
         formData.append('distance_metric', distanceMetricSelect.value);
+        formData.append('detector_backend', detectorBackendSelect.value);
+        formData.append('anti_spoofing', antiSpoofingCheckbox.checked);
 
         try {
             const response = await fetch('/predict', {
                 method: 'POST',
-                body: formData, // FormData now includes image1, image2, model_name, distance_metric
+                body: formData,
             });
 
             const data = await response.json();
@@ -70,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 distanceText.textContent = `Distance: ${data.distance}`;
                 thresholdText.textContent = `Threshold: ${data.threshold} (Distance < Threshold for verification)`;
                 modelText.textContent = `Model Used: ${data.model}`;
-                metricText.textContent = `Distance Metric Used: ${data.similarity_metric}`; // Display the metric
+                metricText.textContent = `Distance Metric Used: ${data.similarity_metric}`;
                 resultDiv.style.display = 'block';
             } else {
                 errorText.textContent = data.error || 'An unknown error occurred.';

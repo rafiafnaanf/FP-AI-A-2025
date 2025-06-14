@@ -1,0 +1,4 @@
+flask
+deepface
+tf_keras
+opencv-python

@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <h1>Face Similarity Test</h1>
-        <p>Upload two images and select a model and metric to check if they are of the same person.</p>
+        <p>Upload two images and select a model, metric, and other options to check if they are of the same person.</p>
 
         <form id="similarityForm" enctype="multipart/form-data">
             <div class="upload-section">
@@ -47,7 +47,27 @@
                         <option value="cosine" selected>Cosine</option>
                         <option value="euclidean">Euclidean</option>
                         <option value="euclidean_l2">Euclidean L2</option>
+                        <option value="angular">Angular</option>
                     </select>
+                </div>
+                <div class="option-group">
+                    <label for="detector_backend">Choose Backend Detector:</label>
+                    <select id="detector_backend" name="detector_backend">
+                        <option value="opencv" selected>OpenCV</option>
+                        <option value="ssd">SSD</option>
+                        <option value="dlib">Dlib</option>
+                        <option value="mtcnn">MTCNN</option>
+                        <option value="fastmtcnn">FastMTCNN</option>
+                        <option value="retinaface">RetinaFace</option>
+                        <option value="mediapipe">MediaPipe</option>
+                        <option value="yolov8">YOLOv8</option>
+                        <option value="yunet">YuNet</option>
+                        <option value="centerface">CenterFace</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="anti_spoofing" class="checkbox-label">Enable Anti-Spoofing:</label>
+                    <input type="checkbox" id="anti_spoofing" name="anti_spoofing" value="true">
                 </div>
             </div>
 
@@ -65,7 +85,7 @@
             <p id="distanceText"></p>
             <p id="thresholdText"></p>
             <p id="modelText"></p>
-            <p id="metricText"></p> <!-- Added for displaying metric -->
+            <p id="metricText"></p>
         </div>
         <div id="error" style="display:none; color:red;">
             <h2>Error:</h2>

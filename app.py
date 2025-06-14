@@ -3,29 +3,31 @@ from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 from deepface import DeepFace
 import logging
+import cv2
+import numpy as np
 
-# Configure basic logging
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
-# Configuration
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload size
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-# Ensure the upload folder exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
     logging.info(f"Created upload folder at {UPLOAD_FOLDER}")
 
-# Available models and metrics for validation (optional, but good practice)
 AVAILABLE_MODELS = [
     "VGG-Face", "Facenet", "Facenet512", "OpenFace", "DeepFace",
     "DeepID", "ArcFace", "Dlib", "SFace", "GhostFaceNet"
 ]
-AVAILABLE_METRICS = ["cosine", "euclidean", "euclidean_l2"]
+AVAILABLE_METRICS = ["cosine", "euclidean", "euclidean_l2", "angular"]
+AVAILABLE_BACKENDS = [
+    'opencv', 'ssd', 'dlib', 'mtcnn', 'fastmtcnn',
+    'retinaface', 'mediapipe', 'yolov8', 'yunet', 'centerface',
+]
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -44,19 +46,22 @@ def predict():
     file1 = request.files['image1']
     file2 = request.files['image2']
 
-    # Get model and metric from form data
-    # Provide defaults in case they are not sent, though the form should send them
     model_name = request.form.get('model_name', 'VGG-Face')
     distance_metric = request.form.get('distance_metric', 'cosine')
+    detector_backend = request.form.get('detector_backend', 'opencv')
+    anti_spoofing_str = request.form.get('anti_spoofing', 'false')
+    anti_spoofing = anti_spoofing_str.lower() in ['true', 'on']
 
-    # Optional: Validate model_name and distance_metric against known lists
+
     if model_name not in AVAILABLE_MODELS:
         logging.error(f"Invalid model_name received: {model_name}")
         return jsonify({'error': f'Invalid model selected. Choose from: {", ".join(AVAILABLE_MODELS)}'}), 400
     if distance_metric not in AVAILABLE_METRICS:
         logging.error(f"Invalid distance_metric received: {distance_metric}")
         return jsonify({'error': f'Invalid distance metric selected. Choose from: {", ".join(AVAILABLE_METRICS)}'}), 400
-
+    if detector_backend not in AVAILABLE_BACKENDS:
+        logging.error(f"Invalid detector_backend received: {detector_backend}")
+        return jsonify({'error': f'Invalid backend detector selected. Choose from: {", ".join(AVAILABLE_BACKENDS)}'}), 400
 
     if file1.filename == '' or file2.filename == '':
         logging.error("One or both image filenames are empty.")
@@ -78,37 +83,62 @@ def predict():
         file2.save(filepath2)
         logging.info(f"Saved image2 to {filepath2}")
 
-        logging.info(f"Attempting verification with model: {model_name}, metric: {distance_metric}")
+        logging.info(f"Attempting verification with model: {model_name}, metric: {distance_metric}, backend: {detector_backend}, anti-spoofing: {anti_spoofing}")
 
-        result = DeepFace.verify(
-            img1_path=filepath1,
-            img2_path=filepath2,
-            model_name=model_name,
-            distance_metric=distance_metric,
-            enforce_detection=True
-        )
+        if anti_spoofing:
+            img1 = cv2.imread(filepath1)
+            img2 = cv2.imread(filepath2)
+
+            face_objs1 = DeepFace.extract_faces(img_path=img1, detector_backend=detector_backend, enforce_detection=True, anti_spoofing=True)
+            if not face_objs1 or not face_objs1[0]['is_real']:
+                 raise ValueError("Spoof detected or no real face found in Image 1.")
+
+            face_objs2 = DeepFace.extract_faces(img_path=img2, detector_backend=detector_backend, enforce_detection=True, anti_spoofing=True)
+            if not face_objs2 or not face_objs2[0]['is_real']:
+                 raise ValueError("Spoof detected or no real face found in Image 2.")
+
+            result = DeepFace.verify(
+                img1_path=face_objs1[0]['face'],
+                img2_path=face_objs2[0]['face'],
+                model_name=model_name,
+                distance_metric=distance_metric,
+                enforce_detection=False
+            )
+
+        else:
+            result = DeepFace.verify(
+                img1_path=filepath1,
+                img2_path=filepath2,
+                model_name=model_name,
+                distance_metric=distance_metric,
+                detector_backend=detector_backend,
+                enforce_detection=True
+            )
+
         logging.info(f"DeepFace verification result: {result}")
 
         return jsonify({
             'verified': result.get('verified'),
             'distance': round(result.get('distance', 0.0), 4),
-            'threshold': result.get('threshold', 0.0), # Threshold can vary by model and metric
-            'model': result.get('model'), # Actual model used by DeepFace
-            'similarity_metric': result.get('similarity_metric') # Actual metric used
+            'threshold': result.get('threshold', 0.0),
+            'model': result.get('model'),
+            'similarity_metric': result.get('similarity_metric')
         })
+
+    except ValueError as e:
+        error_message = str(e)
+        logging.error(f"Validation Error: {error_message}")
+        return jsonify({'error': error_message}), 400
 
     except Exception as e:
         error_message = str(e)
         logging.error(f"Error during DeepFace verification (Model: {model_name}, Metric: {distance_metric}): {error_message}")
         if "Face could not be detected" in error_message or "cannot be aligned" in error_message :
-            return jsonify({'error': f'Could not detect a face in one or both images using {model_name}. Please use clearer images. Details: {error_message}'}), 400
-        elif "Input image is not BGR" in error_message:
-             return jsonify({'error': f'Image processing error. Ensure images are valid. Details: {error_message}'}), 400
-        # Specific error if a model file is missing (can happen if not downloaded correctly)
-        elif "not found" in error_message and (".h5" in error_message or ".pb" in error_message or ".pkl" in error_message or ".json" in error_message):
+            return jsonify({'error': f'Could not detect a face in one or both images using {detector_backend}. Please use clearer images. Details: {error_message}'}), 400
+        elif "not found" in error_message and any(ext in error_message for ext in [".h5", ".pb", ".pkl", ".json"]):
             return jsonify({'error': f'Model files for {model_name} might be missing or corrupted. DeepFace might need to redownload them. Details: {error_message}'}), 500
         else:
-            return jsonify({'error': f'An unexpected error occurred with model {model_name} and metric {distance_metric}: {error_message}'}), 500
+            return jsonify({'error': f'An unexpected error occurred: {error_message}'}), 500
     finally:
         if os.path.exists(filepath1):
             os.remove(filepath1)
